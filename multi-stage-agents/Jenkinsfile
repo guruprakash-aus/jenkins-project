@@ -1,0 +1,51 @@
+pipeline {
+  agent none
+  stages {
+    stage('Back-end (FastAPI)') {
+      agent {
+        docker {
+          image 'python:3.11-slim'
+          args '-e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=test_db --network backend_net'
+        }
+      }
+      environment {
+        POSTGRES_USER = 'postgres'
+        POSTGRES_PASSWORD = 'postgres'
+        POSTGRES_DB = 'test_db'
+        POSTGRES_HOST = 'postgres'
+        POSTGRES_PORT = '5432'
+        DATABASE_URL = 'postgresql://postgres:postgres@postgres:5432/test_db'
+      }
+      steps {
+        script {
+          // Start Postgres as a service container
+          docker.image('postgres:15-alpine').withRun("--name postgres --network backend_net -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=test_db") { c ->
+            // Wait for Postgres to be ready
+            sleep 10
+            sh 'python --version'
+            sh 'pip install --upgrade pip'
+            sh 'pip install -r backend/requirements.txt'
+            sh 'pytest backend/tests'
+          }
+        }
+      }
+    }
+    stage('Front-end (React)') {
+      agent {
+        docker { image 'node:18-alpine' }
+      }
+      steps {
+        sh 'node --version'
+        sh 'npm --version'
+        sh 'cd frontend && npm install'
+        sh 'cd frontend && npm run build'
+      }
+    }
+  }
+  post {
+    always {
+      echo 'Cleaning up...'
+      sh 'docker system prune -f'
+    }
+  }
+}
