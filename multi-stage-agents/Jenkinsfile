@@ -41,11 +41,5 @@ pipeline {
         sh 'cd frontend && npm run build'
       }
     }
-  }
-  post {
-    always {
-      echo 'Cleaning up...'
-      sh 'docker system prune -f'
-    }
-  }
+  }  
 }
